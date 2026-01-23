@@ -75,19 +75,7 @@ def create_job(job: JobCreateRequest, background_tasks: BackgroundTasks):
     
     background_tasks.add_task(process_job, job_id)
     
-    return JobResponse(
-        job_id=job_id,
-        status=JobStatus.PENDING,
-        created_at=currentTime.isoformat(),
-        updated_at=currentTime.isoformat(),
-        started_at=None,
-        finished_at=None,
-        payload=job.payload,
-        error_message=None,
-        attempts=0,
-        result=None,
-        type=job.type
-    )
+    return build_job_response(job_id, jobs[job_id])
 
 @app.get("/jobs/{job_id}", response_model=JobResponse)
 def get_job(job_id: int):
