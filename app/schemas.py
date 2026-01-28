@@ -10,11 +10,13 @@ class JobStatus(str, Enum):
 
 class JobCreateRequest(BaseModel):
     type: str
+    idempotency_key: str
     payload: Dict[str, Any]
 
 class JobResponse(BaseModel):
     job_id: int
     type: str
+    idempotency_key: str
     status: JobStatus
     created_at: str
     updated_at: str
