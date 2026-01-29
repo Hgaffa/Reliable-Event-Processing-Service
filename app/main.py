@@ -1,63 +1,16 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.schemas import JobCreateRequest, JobResponse, JobStatus, JobListResponse
-from app.db import Base, SessionLocal, engine, get_db
+from app.db import Base, engine, get_db
 from app.models import Job
 from app.utils import build_job_response
 from typing import Optional
-import random
-import time
 import datetime
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-
-def process_job(job_id: int):
-    """
-    Simulates doing work on a job.
-    This represents a background worker and will be moved to a separate service when we implement a real worker.
-    """
-    db = SessionLocal()
-    
-    try:
-        job = db.query(Job).filter(Job.id == job_id).first()
-        if not job:
-            return
-        
-        # Update to PROCESSING
-        job.status = JobStatus.PROCESSING
-        job.started_at = datetime.datetime.now()
-        job.attempts += 1
-        db.commit()
-        
-        # Simulate work
-        time.sleep(random.randint(2,5))
-        
-        # Simulate success or failure
-        if random.random() < 0.8:
-            job.status = JobStatus.COMPLETED
-            job.result = {"message": "Job completed successfully"}
-            job.finished_at = datetime.datetime.now()
-        else:
-            job.status = JobStatus.FAILED
-            job.error_message = "Job failed during worker execution"
-            job.finished_at = datetime.datetime.now()
-        
-        job.updated_at = datetime.datetime.now()
-        db.commit()
-    
-    except Exception as e:
-        job.status = JobStatus.FAILED
-        job.error_message = str(e)
-        job.finished_at = datetime.datetime.now()
-        job.updated_at = datetime.datetime.now()
-        db.commit()
-
-    finally:
-        db.close()
 
 @app.get("/health")
 def health():
@@ -67,7 +20,6 @@ def health():
 @app.post("/jobs", response_model=JobResponse)
 def create_job(
     job_request: JobCreateRequest, 
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)):
     """
     Create a new job with idempotency support.
@@ -102,9 +54,6 @@ def create_job(
     db.add(new_job)
     db.commit()
     db.refresh(new_job) # Gets a new auto-generated ID
-    
-    # Queue background task to process the job
-    background_tasks.add_task(process_job, new_job.id)
     
     return build_job_response(new_job)
 
