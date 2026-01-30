@@ -1,6 +1,6 @@
 import time, datetime, random, logging
 from sqlalchemy.orm import Session
-from sqlalchemy import asc
+from sqlalchemy import asc, or_
 from app.db import SessionLocal
 from app.models import Job
 from app.schemas import JobStatus
@@ -50,8 +50,20 @@ def handle_always_fail(payload: dict):
 
 def process_next_job(db: Session):
     """Fetch and process a pending job from db"""
-    job: Job = db.query(Job).filter(Job.status == JobStatus.PENDING).order_by(asc(Job.created_at)).first()
     
+    current_time = datetime.datetime.now()
+
+    job: Job = db.query(Job).filter(
+        Job.status == JobStatus.PENDING,
+        or_(
+            Job.scheduled_at.is_(None),           # Not scheduled - process now
+            Job.scheduled_at <= current_time      # Scheduled time arrived
+        )
+    ).order_by(
+        asc(Job.priority),
+        asc(Job.created_at)
+    ).first()
+ 
     if (job):
         logger.info(f"Processing job {job.id} (type: {job.type})")
         job.status = JobStatus.PROCESSING

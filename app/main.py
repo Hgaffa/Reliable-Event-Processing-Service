@@ -7,9 +7,6 @@ from app.utils import build_job_response
 from typing import Optional
 import datetime
 
-# Create tables
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI()
 
 @app.get("/health")
@@ -45,6 +42,8 @@ def create_job(
         type=job_request.type,
         payload=job_request.payload,
         status=JobStatus.PENDING,
+        priority=job_request.priority,
+        scheduled_at=job_request.scheduled_at,
         attempts=0,
         max_attempts=3,
         created_at=current_time,

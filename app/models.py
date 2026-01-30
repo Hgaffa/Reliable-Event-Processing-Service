@@ -84,3 +84,14 @@ class Job(Base):
         nullable=True,
     )
     
+    priority: Mapped[int] = mapped_column(
+        Integer,
+        default=5,
+        nullable=False
+    )
+    
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    
