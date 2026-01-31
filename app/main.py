@@ -1,9 +1,21 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import Response
+
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+
 from app.schemas import JobCreateRequest, JobResponse, JobStatus, JobListResponse
 from app.db import Base, engine, get_db
 from app.models import Job
 from app.utils import build_job_response
+from app.metrics import (
+    jobs_created_counter,
+    jobs_pending_gauge,
+    jobs_processing_gauge
+)
+
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
 from typing import Optional
 import datetime
 
@@ -54,6 +66,9 @@ def create_job(
     db.commit()
     db.refresh(new_job) # Gets a new auto-generated ID
     
+    # Record metrics
+    jobs_created_counter.labels(job_type=new_job.type).inc()
+    
     return build_job_response(new_job)
 
 @app.get("/jobs/{job_id}", response_model=JobResponse)
@@ -90,3 +105,62 @@ def get_jobs(
     job_list = [build_job_response(job) for job in jobs]
     
     return JobListResponse(jobs=job_list)
+
+@app.get("/metrics")
+def metrics():
+    """
+    Prometheus Metrics Endpoint
+    """
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
+    
+from sqlalchemy import func
+from app.schemas import JobStatus
+
+@app.get("/admin/stats")
+def get_stats(db: Session = Depends(get_db)):
+    """Admin endpoint showing system statistics"""
+    
+    # Get counts by status
+    status_counts = db.query(
+        Job.status,
+        func.count(Job.id).label('count')
+    ).group_by(Job.status).all()
+    
+    # Get counts by type
+    type_counts = db.query(
+        Job.type,
+        func.count(Job.id).label('count')
+    ).group_by(Job.type).all()
+    
+    # Get average attempts for failed jobs
+    avg_attempts = db.query(
+        func.avg(Job.attempts)
+    ).filter(Job.status == JobStatus.FAILED).scalar()
+    
+    # Recent failed jobs
+    recent_failures = db.query(Job).filter(
+        Job.status == JobStatus.FAILED
+    ).order_by(Job.updated_at.desc()).limit(10).all()
+    
+    return {
+        "status_breakdown": {
+            status.value: count for status, count in status_counts
+        },
+        "type_breakdown": {
+            job_type: count for job_type, count in type_counts
+        },
+        "avg_attempts_for_failed_jobs": float(avg_attempts) if avg_attempts else 0,
+        "recent_failures": [
+            {
+                "job_id": job.id,
+                "type": job.type,
+                "error": job.error_message,
+                "attempts": job.attempts,
+                "failed_at": job.finished_at.isoformat() if job.finished_at else None
+            }
+            for job in recent_failures
+        ]
+    }
