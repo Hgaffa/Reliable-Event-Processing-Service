@@ -21,6 +21,7 @@ def build_job_response(job: Job) -> JobResponse:
         type=job.type,
         status=job.status,
         priority=job.priority,
+        payload=job.payload,
         created_at=job.created_at.isoformat(),
         updated_at=job.updated_at.isoformat(),
         started_at=job.started_at.isoformat() if job.started_at else None,

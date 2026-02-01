@@ -21,6 +21,7 @@ class JobResponse(BaseModel):
     idempotency_key: str
     status: JobStatus
     priority: int
+    payload: Dict[str, Any]
     created_at: str
     updated_at: str
     started_at: Optional[str]

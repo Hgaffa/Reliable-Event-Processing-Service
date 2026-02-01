@@ -172,9 +172,24 @@ def worker_loop():
         # Start metrics server in background thread
         logger.info(f"Starting metrics server on port {WORKER_METRICS_PORT}...")
         start_http_server(WORKER_METRICS_PORT)
+        
+        # Wait for database to be ready with retries
+        max_retries = 10
+        retry_count = 0
 
-        # Crash recovery
-        recover_stuck_jobs(db)
+        while retry_count < max_retries:
+            try:
+                # Crash recovery
+                recover_stuck_jobs(db)
+                logger.info("Database connection established")
+                break
+            except Exception as e:
+                retry_count += 1
+                logger.warning(f"Database not ready (attempt {retry_count}/{max_retries}): {e}")
+                if retry_count >= max_retries:
+                    logger.error("Failed to connect to database after max retries")
+                    raise
+                time.sleep(2)  # Wait 2 seconds before retry
         
         # Mark worker as up
         worker_up_gauge.set(1)

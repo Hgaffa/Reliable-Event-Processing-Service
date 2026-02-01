@@ -49,13 +49,27 @@ def create_job(
     # Otherwise, create a new job
     current_time = datetime.datetime.now()
     
+    # Parse scheduled_at if provided
+    scheduled_at_datetime = None
+    if job_request.scheduled_at:
+        try:
+            # Parse ISO format datetime string
+            scheduled_at_datetime = datetime.datetime.fromisoformat(
+                job_request.scheduled_at.replace('Z', '+00:00')
+            )
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid scheduled_at format. Use ISO 8601 format (e.g., 2026-01-30T15:00:00)"
+            )
+    
     new_job = Job(
         idempotency_key=job_request.idempotency_key,
         type=job_request.type,
         payload=job_request.payload,
         status=JobStatus.PENDING,
         priority=job_request.priority,
-        scheduled_at=job_request.scheduled_at,
+        scheduled_at=scheduled_at_datetime,
         attempts=0,
         max_attempts=3,
         created_at=current_time,
