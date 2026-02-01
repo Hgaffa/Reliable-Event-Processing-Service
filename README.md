@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker)](https://www.docker.com/)
 [![Tests](https://img.shields.io/badge/tests-passing-success.svg)](https://pytest.org)
 
-A production-ready, enterprise-grade asynchronous job processing system built with with FastAPI, PostgreSQL, and background workers. This system demonstrates core distributed systems patterns for reliable background job processing.
+An asynchronous job processing system built with with FastAPI, PostgreSQL, and background workers. This system demonstrates core distributed systems patterns for reliable background job processing.
 
 ---
 
