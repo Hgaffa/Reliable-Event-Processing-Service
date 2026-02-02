@@ -6,7 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?logo=docker)](https://www.docker.com/)
 [![Tests](https://img.shields.io/badge/tests-passing-success.svg)](https://pytest.org)
 
-An asynchronous job processing system built with with FastAPI, PostgreSQL, and background workers. This system demonstrates core distributed systems patterns for reliable background job processing.
+An asynchronous job processing system built with FastAPI, PostgreSQL, and background workers. This system demonstrates core distributed systems patterns for reliable background job processing.
 
 ---
 
@@ -59,75 +59,69 @@ This project is a **highly reliable job processing service** that handles asynch
 
 ### High-Level System Design
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          Client Layer                            │
-│  (HTTP Clients, Web Apps, Mobile Apps, Internal Services)       │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             │ HTTP/REST
-                             ▼
-                    ┌─────────────────┐
-                    │   FastAPI API   │ :8000
-                    │   (Uvicorn)     │
-                    └────────┬────────┘
-                             │
-                             │ SQL
-                             ▼
-                    ┌─────────────────┐
-                    │   PostgreSQL    │ :5432
-                    │   (Jobs Table)  │
-                    └────────┬────────┘
-                             │
-                             │ Poll & Update
-                             ▼
-                    ┌─────────────────┐
-                    │ Background      │ :8001 (metrics)
-                    │ Worker Process  │
-                    └─────────────────┘
-                             │
-                             │ Job Execution
-                             ▼
-                    ┌─────────────────┐
-                    │  Job Handlers   │
-                    │ (Email, Data,   │
-                    │  Reports, etc)  │
-                    └─────────────────┘
+```mermaid
+graph TB
+    Client["Client Layer<br/>(HTTP Clients, Web Apps, Mobile Apps)"]
+    API["FastAPI API<br/>:8000<br/>(Uvicorn)"]
+    DB["PostgreSQL<br/>:5432<br/>(Jobs Table)"]
+    Worker["Background Worker Process<br/>:8001 (metrics)"]
+    Handlers["Job Handlers<br/>(Email, Data, Reports)"]
+    
+    Client -->|HTTP/REST| API
+    API -->|SQL| DB
+    DB -->|Poll & Update| Worker
+    Worker -->|Job Execution| Handlers
+    
+    style Client fill:#e1f5ff
+    style API fill:#fff4e6
+    style DB fill:#e8f5e9
+    style Worker fill:#f3e5f5
+    style Handlers fill:#fce4ec
 ```
 
 ### Request Flow: Job Lifecycle
 
-```
-1. Client Request
-   ↓
-2. API: Idempotency Check
-   ├─→ Existing job? → Return existing job
-   └─→ New job? → Create job with status=PENDING
-       ↓
-3. Worker: Poll for PENDING jobs
-   ├─→ Priority sort (1 = highest)
-   ├─→ Scheduled check (ready to run?)
-   └─→ Update status=PROCESSING
-       ↓
-4. Worker: Execute Job
-   ├─→ Success? → status=COMPLETED, save result
-   └─→ Failure?
-       ├─→ attempts < max_attempts? → status=PENDING (retry)
-       └─→ attempts ≥ max_attempts? → status=FAILED (permanent)
+```mermaid
+graph TD
+    A[Client Request] --> B{Idempotency Check}
+    B -->|Existing job| C[Return existing job]
+    B -->|New job| D[Create job with status=PENDING]
+    D --> E{Worker: Poll for PENDING jobs}
+    E --> F[Priority sort - 1 = highest]
+    E --> G[Scheduled check - ready to run?]
+    F --> H[Update status=PROCESSING]
+    G --> H
+    H --> I{Execute Job}
+    I -->|Success| J[status=COMPLETED<br/>Save result]
+    I -->|Failure| K{attempts < max_attempts?}
+    K -->|Yes| L[status=PENDING<br/>Retry]
+    K -->|No| M[status=FAILED<br/>Permanent failure]
+    
+    style A fill:#e3f2fd
+    style J fill:#c8e6c9
+    style M fill:#ffcdd2
+    style L fill:#fff9c4
 ```
 
 ### State Machine
 
-```
-    PENDING ──────► PROCESSING ──────► COMPLETED ✓
-       ▲                 │
-       │                 │ (on failure)
-       │                 ▼
-       └────────────  (retry logic)
-                         │
-                         ▼
-                      FAILED ✗
-                  (max attempts exceeded)
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> PROCESSING
+    PROCESSING --> COMPLETED
+    PROCESSING --> PENDING: Retry on failure<br/>(attempts < max)
+    PROCESSING --> FAILED: Max attempts exceeded
+    COMPLETED --> [*]
+    FAILED --> [*]
+    
+    note right of COMPLETED
+        Job executed successfully ✓
+    end note
+    
+    note right of FAILED
+        Permanent failure ✗
+    end note
 ```
 
 ---
@@ -445,6 +439,7 @@ pytest tests/test_api.py::test_idempotency -v
 # Run tests matching a pattern
 pytest -k "idempotency" -v
 ```
+
 ---
 
 ## 🚢 Deployment
