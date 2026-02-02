@@ -71,12 +71,6 @@ graph TB
     API -->|SQL| DB
     DB -->|Poll & Update| Worker
     Worker -->|Job Execution| Handlers
-    
-    style Client fill:#e1f5ff
-    style API fill:#fff4e6
-    style DB fill:#e8f5e9
-    style Worker fill:#f3e5f5
-    style Handlers fill:#fce4ec
 ```
 
 ### Request Flow: Job Lifecycle
@@ -96,11 +90,6 @@ graph TD
     I -->|Failure| K{attempts < max_attempts?}
     K -->|Yes| L[status=PENDING<br/>Retry]
     K -->|No| M[status=FAILED<br/>Permanent failure]
-    
-    style A fill:#e3f2fd
-    style J fill:#c8e6c9
-    style M fill:#ffcdd2
-    style L fill:#fff9c4
 ```
 
 ### State Machine
