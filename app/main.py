@@ -58,11 +58,14 @@ def create_job(
             scheduled_at_datetime = datetime.datetime.fromisoformat(
                 job_request.scheduled_at.replace('Z', '+00:00')
             )
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError) as exc:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid scheduled_at format. Use ISO 8601 format (e.g., 2026-01-30T15:00:00)"
-            )
+                detail=(
+                    "Invalid scheduled_at format. "
+                    "Use ISO 8601 format (e.g., 2026-01-30T15:00:00)"
+                )
+            ) from exc
 
     new_job = Job(
         idempotency_key=job_request.idempotency_key,
@@ -165,9 +168,7 @@ def get_stats(db: Session = Depends(get_db)):
         "status_breakdown": {
             status.value: count for status, count in status_counts
         },
-        "type_breakdown": {
-            job_type: count for job_type, count in type_counts  # pylint: disable=not-callable
-        },
+        "type_breakdown": dict(type_counts),
         "avg_attempts_for_failed_jobs": float(avg_attempts) if avg_attempts else 0,
         "recent_failures": [
             {

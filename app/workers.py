@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def execute_job(job: Job, db: Session):
+def execute_job(job: Job):
     """Route job to appropriate handler based on type"""
 
     handlers = {
@@ -70,7 +70,7 @@ def handle_process_data(payload: dict):
     return {"data": payload.get("data"), "status": "processed"}
 
 
-def handle_always_fail(payload: dict):
+def handle_always_fail():
     """Always fails - for testing retry logic"""
     time.sleep(1)
     raise Exception("This job is designed to fail")
@@ -99,7 +99,9 @@ def process_next_job(db: Session):
             job_type=job.type).observe(queue_wait_seconds)
 
         logger.info(
-            f"Processing job {job.id} (type: {job.type}, priority: {job.priority}, waited: {queue_wait_seconds:.2f}s)")
+            "Processing job %s (type: %s, priority: %s, waited: %.2fs)",
+            job.id, job.type, job.priority, queue_wait_seconds
+        )
         if job.scheduled_at:
             logger.info(
                 f"Job was scheduled for {job.scheduled_at.isoformat()}")
@@ -115,7 +117,7 @@ def process_next_job(db: Session):
         return
 
     try:
-        result = execute_job(job, db)
+        result = execute_job(job)
         duration = time.time() - start_time
 
         logger.info(f"Job {job.id} completed successfully in {duration:.2f}s")

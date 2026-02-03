@@ -1,10 +1,10 @@
 """
 Docstring for app.db
 """
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,6 +17,7 @@ Base = declarative_base()
 
 
 def get_db():
+    """Get DB"""
     db = SESSIONLOCAL()
     try:
         yield db
