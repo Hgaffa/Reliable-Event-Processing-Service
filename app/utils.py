@@ -8,10 +8,10 @@ from app.models import Job
 def build_job_response(job: Job) -> JobResponse:
     """
     Convert a SQLAlchemy Job model instance to a JobResponse Pydantic model.
-    
+
     Args:
         job: SQLAlchemy Job model instance
-        
+
     Returns:
         JobResponse: Pydantic model for API response
     """
