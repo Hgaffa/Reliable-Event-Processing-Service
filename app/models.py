@@ -6,43 +6,44 @@ from sqlalchemy.orm import mapped_column
 from app.db import Base
 from app.schemas import JobStatus
 
+
 class Job(Base):
     __tablename__ = "job"
-    
+
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True,
     )
-    
+
     idempotency_key: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         unique=True,
         index=True,
     )
-    
+
     type: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
     )
-    
+
     status: Mapped[JobStatus] = mapped_column(
         Enum(JobStatus, name="job_status"),
         nullable=False,
         default=JobStatus.PENDING,
     )
-    
+
     payload: Mapped[Dict] = mapped_column(
         JSON,
         nullable=False,
     )
-    
+
     result: Mapped[Optional[Dict]] = mapped_column(
-        JSON, 
+        JSON,
         nullable=True,
     )
-    
+
     error_message: Mapped[Optional[str]] = mapped_column(
         String,
         nullable=True,
@@ -83,15 +84,14 @@ class Job(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    
+
     priority: Mapped[int] = mapped_column(
         Integer,
         default=5,
         nullable=False
     )
-    
+
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    

@@ -20,7 +20,8 @@ engine = create_engine(
     connect_args={"check_same_thread": False}
 )
 
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine)
 
 
 def override_get_db() -> Generator[Session, None, None]:
@@ -51,11 +52,11 @@ def client() -> Generator[TestClient, None, None]:
     """
     # Override the database dependency
     app.dependency_overrides[get_db] = override_get_db
-    
+
     # Create and yield client
     with TestClient(app) as c:
         yield c
-    
+
     # Clear overrides
     app.dependency_overrides.clear()
 
@@ -68,9 +69,9 @@ def db_session() -> Generator[Session, None, None]:
     connection = engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
-    
+
     yield session
-    
+
     session.close()
     transaction.rollback()
     connection.close()

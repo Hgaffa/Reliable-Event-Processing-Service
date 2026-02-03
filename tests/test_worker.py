@@ -11,7 +11,7 @@ from app.schemas import JobStatus
 def test_handle_send_email_success():
     """Test email handler success case"""
     payload = {"to": "test@example.com"}
-    
+
     # Mock random to force success (return value > 0.2)
     with patch('app.workers.random.random', return_value=0.5):
         with patch('app.workers.time.sleep'):  # Skip the sleep
@@ -23,7 +23,7 @@ def test_handle_send_email_success():
 def test_handle_send_email_failure():
     """Test email handler failure case"""
     payload = {"to": "test@example.com"}
-    
+
     # Mock random to force failure (return value < 0.2)
     with patch('app.workers.random.random', return_value=0.1):
         with patch('app.workers.time.sleep'):  # Skip the sleep
@@ -34,7 +34,7 @@ def test_handle_send_email_failure():
 def test_handle_process_data_success():
     """Test process data handler success"""
     payload = {"data": "test data"}
-    
+
     with patch('app.workers.random.random', return_value=0.5):
         with patch('app.workers.time.sleep'):
             result = handle_process_data(payload)
@@ -45,7 +45,7 @@ def test_handle_process_data_success():
 def test_handle_process_data_failure():
     """Test process data handler failure"""
     payload = {"data": "test data"}
-    
+
     with patch('app.workers.random.random', return_value=0.1):
         with patch('app.workers.time.sleep'):
             with pytest.raises(Exception, match="Process data service temporarily unavailable"):
@@ -55,7 +55,7 @@ def test_handle_process_data_failure():
 def test_handle_always_fail():
     """Test that test_failure job type always fails"""
     payload = {"test": "data"}
-    
+
     with patch('app.workers.time.sleep'):
         with pytest.raises(Exception, match="This job is designed to fail"):
             handle_always_fail(payload)
@@ -69,7 +69,7 @@ def test_execute_job_send_email(db_session):
         payload={"to": "test@example.com"},
         status=JobStatus.PENDING
     )
-    
+
     with patch('app.workers.random.random', return_value=0.5):
         with patch('app.workers.time.sleep'):
             result = execute_job(job, db_session)
@@ -85,7 +85,7 @@ def test_execute_job_process_data(db_session):
         payload={"data": "test"},
         status=JobStatus.PENDING
     )
-    
+
     with patch('app.workers.random.random', return_value=0.5):
         with patch('app.workers.time.sleep'):
             result = execute_job(job, db_session)
@@ -100,7 +100,7 @@ def test_execute_job_unknown_type(db_session):
         payload={},
         status=JobStatus.PENDING
     )
-    
+
     with pytest.raises(ValueError, match="Unknown job type: unknown_job_type"):
         execute_job(job, db_session)
 
@@ -113,7 +113,7 @@ def test_execute_job_test_failure(db_session):
         payload={},
         status=JobStatus.PENDING
     )
-    
+
     with patch('app.workers.time.sleep'):
         with pytest.raises(Exception, match="This job is designed to fail"):
             execute_job(job, db_session)

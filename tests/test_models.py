@@ -17,10 +17,10 @@ def test_create_job(db_session):
         status=JobStatus.PENDING,
         priority=5
     )
-    
+
     db_session.add(job)
     db_session.commit()
-    
+
     assert job.id is not None
     assert job.idempotency_key == "test-key"
     assert job.status == JobStatus.PENDING
@@ -36,10 +36,10 @@ def test_job_defaults(db_session):
         payload={"to": "test@example.com"},
         status=JobStatus.PENDING
     )
-    
+
     db_session.add(job)
     db_session.commit()
-    
+
     # Check defaults
     assert job.attempts == 0
     assert job.max_attempts == 3
@@ -60,7 +60,7 @@ def test_idempotency_key_unique(db_session):
     )
     db_session.add(job1)
     db_session.commit()
-    
+
     # Try to create another job with same idempotency key
     job2 = Job(
         idempotency_key="duplicate",
@@ -69,7 +69,7 @@ def test_idempotency_key_unique(db_session):
         status=JobStatus.PENDING
     )
     db_session.add(job2)
-    
+
     # Should raise integrity error
     with pytest.raises(IntegrityError):
         db_session.commit()
@@ -77,8 +77,9 @@ def test_idempotency_key_unique(db_session):
 
 def test_job_status_enum(db_session):
     """Test all job status values"""
-    statuses = [JobStatus.PENDING, JobStatus.PROCESSING, JobStatus.COMPLETED, JobStatus.FAILED]
-    
+    statuses = [JobStatus.PENDING, JobStatus.PROCESSING,
+                JobStatus.COMPLETED, JobStatus.FAILED]
+
     for i, status in enumerate(statuses):
         job = Job(
             idempotency_key=f"status-test-{i}",
@@ -87,9 +88,9 @@ def test_job_status_enum(db_session):
             status=status
         )
         db_session.add(job)
-    
+
     db_session.commit()
-    
+
     # Query back and verify
     jobs = db_session.query(Job).all()
     assert len(jobs) == 4
@@ -104,22 +105,22 @@ def test_job_timestamps(db_session):
         payload={},
         status=JobStatus.PENDING
     )
-    
+
     db_session.add(job)
     db_session.commit()
-    
+
     # Check timestamps exist
     assert job.created_at is not None
     assert job.updated_at is not None
     assert job.started_at is None
     assert job.finished_at is None
-    
+
     # Update the job
     original_created_at = job.created_at
     job.status = JobStatus.COMPLETED
     job.finished_at = datetime.now()
     db_session.commit()
-    
+
     # created_at should not change
     assert job.created_at == original_created_at
     # finished_at should now be set
@@ -135,13 +136,15 @@ def test_job_with_result(db_session):
         status=JobStatus.COMPLETED,
         result={"message": "Email sent successfully", "id": 12345}
     )
-    
+
     db_session.add(job)
     db_session.commit()
-    
+
     # Query back
-    retrieved_job = db_session.query(Job).filter_by(idempotency_key="result-test").first()
-    assert retrieved_job.result == {"message": "Email sent successfully", "id": 12345}
+    retrieved_job = db_session.query(Job).filter_by(
+        idempotency_key="result-test").first()
+    assert retrieved_job.result == {
+        "message": "Email sent successfully", "id": 12345}
 
 
 def test_job_with_error(db_session):
@@ -155,12 +158,13 @@ def test_job_with_error(db_session):
         error_message=error_msg,
         attempts=3
     )
-    
+
     db_session.add(job)
     db_session.commit()
-    
+
     # Query back
-    retrieved_job = db_session.query(Job).filter_by(idempotency_key="error-test").first()
+    retrieved_job = db_session.query(Job).filter_by(
+        idempotency_key="error-test").first()
     assert retrieved_job.error_message == error_msg
     assert retrieved_job.attempts == 3
 
@@ -175,12 +179,13 @@ def test_job_scheduled_at(db_session):
         status=JobStatus.PENDING,
         scheduled_at=scheduled_time
     )
-    
+
     db_session.add(job)
     db_session.commit()
-    
+
     # Query back
-    retrieved_job = db_session.query(Job).filter_by(idempotency_key="scheduled-test").first()
+    retrieved_job = db_session.query(Job).filter_by(
+        idempotency_key="scheduled-test").first()
     assert retrieved_job.scheduled_at.year == 2026
     assert retrieved_job.scheduled_at.month == 12
     assert retrieved_job.scheduled_at.day == 31
@@ -196,7 +201,7 @@ def test_query_by_status(db_session):
         JobStatus.COMPLETED,
         JobStatus.FAILED
     ]
-    
+
     for i, status in enumerate(statuses):
         job = Job(
             idempotency_key=f"query-test-{i}",
@@ -205,15 +210,17 @@ def test_query_by_status(db_session):
             status=status
         )
         db_session.add(job)
-    
+
     db_session.commit()
-    
+
     # Query PENDING jobs
-    pending_jobs = db_session.query(Job).filter(Job.status == JobStatus.PENDING).all()
+    pending_jobs = db_session.query(Job).filter(
+        Job.status == JobStatus.PENDING).all()
     assert len(pending_jobs) == 2
-    
+
     # Query COMPLETED jobs
-    completed_jobs = db_session.query(Job).filter(Job.status == JobStatus.COMPLETED).all()
+    completed_jobs = db_session.query(Job).filter(
+        Job.status == JobStatus.COMPLETED).all()
     assert len(completed_jobs) == 1
 
 
@@ -229,9 +236,9 @@ def test_query_by_priority(db_session):
             priority=priority
         )
         db_session.add(job)
-    
+
     db_session.commit()
-    
+
     # Query high priority jobs
     high_priority = db_session.query(Job).filter(Job.priority <= 3).all()
     assert len(high_priority) == 1

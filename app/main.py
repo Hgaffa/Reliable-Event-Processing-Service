@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.schemas import JobCreateRequest, JobResponse, JobStatus, JobListResponse
+from app.schemas import JobCreateRequest, JobResponse, JobStatus, JobListResponse, JobStatus
 from app.db import Base, engine, get_db
 from app.models import Job
 from app.utils import build_job_response
@@ -21,34 +21,36 @@ import datetime
 
 app = FastAPI()
 
+
 @app.get("/health")
 def health():
     """Health check endpoint to verify service is running"""
-    return { "status": "ok" }
+    return {"status": "ok"}
+
 
 @app.post("/jobs", response_model=JobResponse)
 def create_job(
-    job_request: JobCreateRequest, 
-    db: Session = Depends(get_db)):
+        job_request: JobCreateRequest,
+        db: Session = Depends(get_db)):
     """
     Create a new job with idempotency support.
-    
+
     If a job with the same idempotency_key already exists, returns that job instead of creating a new one.
     This ensures that retrying the same request doesn't create duplicate jobs.
     """
-    
+
     # Check if job with this idempotency key exists
     existing_job = db.query(Job).filter(
         Job.idempotency_key == job_request.idempotency_key
     ).first()
-    
+
     if existing_job:
         # Return existing job
         return build_job_response(existing_job)
 
     # Otherwise, create a new job
     current_time = datetime.datetime.now()
-    
+
     # Parse scheduled_at if provided
     scheduled_at_datetime = None
     if job_request.scheduled_at:
@@ -62,7 +64,7 @@ def create_job(
                 status_code=400,
                 detail="Invalid scheduled_at format. Use ISO 8601 format (e.g., 2026-01-30T15:00:00)"
             )
-    
+
     new_job = Job(
         idempotency_key=job_request.idempotency_key,
         type=job_request.type,
@@ -75,15 +77,16 @@ def create_job(
         created_at=current_time,
         updated_at=current_time
     )
-    
+
     db.add(new_job)
     db.commit()
-    db.refresh(new_job) # Gets a new auto-generated ID
-    
+    db.refresh(new_job)  # Gets a new auto-generated ID
+
     # Record metrics
     jobs_created_counter.labels(job_type=new_job.type).inc()
-    
+
     return build_job_response(new_job)
+
 
 @app.get("/jobs/{job_id}", response_model=JobResponse)
 def get_job(job_id: int, db: Session = Depends(get_db)):
@@ -91,34 +94,36 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
     Get the status and details of a specific job by ID.
     """
     job = db.query(Job).filter(Job.id == job_id).first()
-    
+
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     return build_job_response(job)
 
+
 @app.get("/jobs", response_model=JobListResponse)
 # Status is an optional query parameter as opposed to a URL parameter to allow users to query all jobs without status filtering
 def get_jobs(
-    status: Optional[JobStatus] = None,
-    db: Session = Depends(get_db)):
+        status: Optional[JobStatus] = None,
+        db: Session = Depends(get_db)):
     """
     List all jobs, optionally filtered by status.
-    
+
     Query parameters:
     - status: Filter jobs by status (PENDING, PROCESSING, COMPLETED, FAILED)
     """
     query = db.query(Job)
-    
+
     if status is not None:
         query = query.filter(Job.status == status)
-    
+
     jobs = query.all()
-    
+
     # Conver to response format
     job_list = [build_job_response(job) for job in jobs]
-    
+
     return JobListResponse(jobs=job_list)
+
 
 @app.get("/metrics")
 def metrics():
@@ -129,36 +134,34 @@ def metrics():
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST
     )
-    
-from sqlalchemy import func
-from app.schemas import JobStatus
+
 
 @app.get("/admin/stats")
 def get_stats(db: Session = Depends(get_db)):
     """Admin endpoint showing system statistics"""
-    
+
     # Get counts by status
     status_counts = db.query(
         Job.status,
         func.count(Job.id).label('count')
     ).group_by(Job.status).all()
-    
+
     # Get counts by type
     type_counts = db.query(
         Job.type,
         func.count(Job.id).label('count')
     ).group_by(Job.type).all()
-    
+
     # Get average attempts for failed jobs
     avg_attempts = db.query(
         func.avg(Job.attempts)
     ).filter(Job.status == JobStatus.FAILED).scalar()
-    
+
     # Recent failed jobs
     recent_failures = db.query(Job).filter(
         Job.status == JobStatus.FAILED
     ).order_by(Job.updated_at.desc()).limit(10).all()
-    
+
     return {
         "status_breakdown": {
             status.value: count for status, count in status_counts
