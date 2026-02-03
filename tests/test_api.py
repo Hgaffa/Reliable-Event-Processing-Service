@@ -1,7 +1,6 @@
 """
 API endpoint tests
 """
-import pytest
 from app.schemas import JobStatus
 
 

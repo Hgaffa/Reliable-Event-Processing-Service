@@ -1,4 +1,9 @@
-import time, datetime, random, logging, threading, os
+"""Worker functions for background job processing."""
+import time
+import datetime
+import random
+import logging
+import os
 from dotenv import load_dotenv
 
 from prometheus_client import start_http_server
@@ -31,17 +36,17 @@ logger = logging.getLogger(__name__)
 
 def execute_job(job: Job, db: Session):
     """Route job to appropriate handler based on type"""
-    
+
     handlers = {
         "send_email": handle_send_email,
         "process_data": handle_process_data,
         "test_failure": handle_always_fail
     }
-    
+
     handler = handlers.get(job.type)
     if not handler:
         raise ValueError(f"Unknown job type: {job.type}")
-    
+
     result = handler(job.payload)
     return result
 
@@ -50,7 +55,7 @@ def handle_send_email(payload: dict):
     time.sleep(2)
     if random.random() < 0.2:
         raise Exception("Email service temporarily unavailable")
-    
+
     return {"sent_to": payload.get("to"), "status": "sent"}
 
 def handle_process_data(payload: dict):
@@ -58,7 +63,7 @@ def handle_process_data(payload: dict):
     time.sleep(2)
     if random.random() < 0.2:
         raise Exception("Process data service temporarily unavailable")
-    
+
     return {"data": payload.get("data"), "status": "processed"}
 
 def handle_always_fail(payload: dict):
@@ -68,7 +73,7 @@ def handle_always_fail(payload: dict):
 
 def process_next_job(db: Session):
     """Fetch and process a pending job from db"""
-    
+
     current_time = datetime.datetime.now(datetime.timezone.utc)
 
     job: Job = db.query(Job).filter(
@@ -86,7 +91,7 @@ def process_next_job(db: Session):
         # Calculate wait time for metrics
         queue_wait_seconds = (current_time - job.created_at).total_seconds()
         job_queue_wait_histogram.labels(job_type=job.type).observe(queue_wait_seconds)
-        
+
         logger.info(f"Processing job {job.id} (type: {job.type}, priority: {job.priority}, waited: {queue_wait_seconds:.2f}s)")
         if job.scheduled_at:
             logger.info(f"Job was scheduled for {job.scheduled_at.isoformat()}")
@@ -94,7 +99,7 @@ def process_next_job(db: Session):
         job.status = JobStatus.PROCESSING
         job.started_at = datetime.datetime.now()
         db.commit()
-        
+
         # Start timing the job
         start_time = time.time()
     else:
@@ -111,23 +116,23 @@ def process_next_job(db: Session):
         job.status = JobStatus.COMPLETED
         job.result = result
         job.finished_at = datetime.datetime.now()
-        
+
         jobs_completed_counter.labels(job_type=job.type).inc()
         job_duration_histogram.labels(job_type=job.type).observe(duration)
-    
+
     except Exception as e:
         duration = time.time() - start_time
         logger.error(f"Job {job.id} failed after {duration:.2f}s: {str(e)}")
 
         job.attempts += 1
-        
+
         if job.attempts >= job.max_attempts:
             # No more retries
             logger.error(f"Job {job.id} has failed and has exceeded the max attempts: {job.max_attempts}")
             job.status = JobStatus.FAILED
             job.error_message = str(e)
             job.finished_at = datetime.datetime.now()
-            
+
             jobs_failed_counter.labels(job_type=job.type).inc()
             job_duration_histogram.labels(job_type=job.type).observe(duration)
         else:
@@ -135,18 +140,18 @@ def process_next_job(db: Session):
             logger.info(f"Job {job.id} will retry (attempt {job.attempts}/{job.max_attempts})")
             job.status = JobStatus.PENDING
             job.error_message = f"Attempt {job.attempts} failed: {str(e)}"
-            
+
             jobs_retried_counter.labels(job_type=job.type).inc()
-    
+
     finally:
         job.updated_at = datetime.datetime.now()
         db.commit()
-    
+
 def update_state_gauges(db: Session):
     """Update gauge metrics with current job counts"""
     pending_count = db.query(Job).filter(Job.status == JobStatus.PENDING).count()
     processing_count = db.query(Job).filter(Job.status == JobStatus.PROCESSING).count()
-    
+
     jobs_pending_gauge.set(pending_count)
     jobs_processing_gauge.set(processing_count)
 
@@ -154,7 +159,7 @@ def recover_stuck_jobs(db: Session):
     """On startup, reset PROCESSING jobs to PENDING (crash recovery)"""
     stuck_jobs = db.query(Job).filter(Job.status == JobStatus.PROCESSING).all()
     count = len(stuck_jobs)
-    
+
     if count > 0:
         logger.warning(f"Recovered {count} stuck jobs from previous crash")
         db.query(Job).filter(Job.status == JobStatus.PROCESSING).update({
@@ -163,16 +168,16 @@ def recover_stuck_jobs(db: Session):
         db.commit()
     else:
         logger.info("No stuck jobs found - clean startup")
-    
+
 def worker_loop():
     """Main worker loop that polls the db for jobs"""
     db = SessionLocal()
-    
+
     try:
         # Start metrics server in background thread
         logger.info(f"Starting metrics server on port {WORKER_METRICS_PORT}...")
         start_http_server(WORKER_METRICS_PORT)
-        
+
         # Wait for database to be ready with retries
         max_retries = 10
         retry_count = 0
@@ -190,10 +195,10 @@ def worker_loop():
                     logger.error("Failed to connect to database after max retries")
                     raise
                 time.sleep(2)  # Wait 2 seconds before retry
-        
+
         # Mark worker as up
         worker_up_gauge.set(1)
-        
+
         # Process loop
         while True:
             process_next_job(db)

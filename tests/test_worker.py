@@ -1,11 +1,11 @@
 """
 Worker logic tests
 """
-import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from app.workers import execute_job, handle_send_email, handle_process_data, handle_always_fail
 from app.models import Job
 from app.schemas import JobStatus
+import pytest
 
 
 def test_handle_send_email_success():

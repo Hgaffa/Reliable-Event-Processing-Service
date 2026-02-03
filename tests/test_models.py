@@ -1,11 +1,11 @@
 """
 Database model tests
 """
-import pytest
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from app.models import Job
 from app.schemas import JobStatus
+import pytest
 
 
 def test_create_job(db_session):

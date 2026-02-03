@@ -2,7 +2,6 @@
 Test configuration and fixtures
 Based on official FastAPI testing documentation
 """
-import pytest
 import os
 from typing import Generator
 from sqlalchemy import create_engine
@@ -11,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.db import Base, get_db
 from app.main import app
+import pytest
 
 # SQLite test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -20,7 +20,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False}
 )
 
-TestingSessionLocal = sessionmaker(
+TESTINGSESSIONLOCAL = sessionmaker(
     autocommit=False, autoflush=False, bind=engine)
 
 
@@ -29,7 +29,7 @@ def override_get_db() -> Generator[Session, None, None]:
     Dependency override for database session
     """
     try:
-        db = TestingSessionLocal()
+        db = TESTINGSESSIONLOCAL()
         yield db
     finally:
         db.close()
@@ -68,7 +68,7 @@ def db_session() -> Generator[Session, None, None]:
     """
     connection = engine.connect()
     transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    session = TESTINGSESSIONLOCAL(bind=connection)
 
     yield session
 
@@ -78,12 +78,12 @@ def db_session() -> Generator[Session, None, None]:
 
 
 # Cleanup test database file
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish():
     """
     Cleanup after all tests are done
     """
     if os.path.exists("./test.db"):
         try:
             os.remove("./test.db")
-        except:
+        except Exception:
             pass
