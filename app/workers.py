@@ -10,6 +10,7 @@ from prometheus_client import start_http_server
 
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, or_
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import SESSIONLOCAL
 from app.models import Job
@@ -35,6 +36,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Custom exceptions for better error handling
+class JobExecutionError(Exception):
+    """Raised when a job execution fails."""
+
+
+class UnknownJobTypeError(ValueError):
+    """Raised when job type is not recognized."""
+
+
 def execute_job(job: Job):
     """Route job to appropriate handler based on type"""
 
@@ -46,7 +56,7 @@ def execute_job(job: Job):
 
     handler = handlers.get(job.type)
     if not handler:
-        raise ValueError(f"Unknown job type: {job.type}")
+        raise UnknownJobTypeError(f"Unknown job type: {job.type}")
 
     result = handler(job.payload)
     return result
@@ -56,7 +66,7 @@ def handle_send_email(payload: dict):
     """Simulate sending an email"""
     time.sleep(2)
     if random.random() < 0.2:
-        raise Exception("Email service temporarily unavailable")
+        raise JobExecutionError("Email service temporarily unavailable")
 
     return {"sent_to": payload.get("to"), "status": "sent"}
 
@@ -65,15 +75,16 @@ def handle_process_data(payload: dict):
     """Simulate processing data"""
     time.sleep(2)
     if random.random() < 0.2:
-        raise Exception("Process data service temporarily unavailable")
+        raise JobExecutionError("Process data service temporarily unavailable")
 
     return {"data": payload.get("data"), "status": "processed"}
 
 
-def handle_always_fail():
+def handle_always_fail(payload: dict):
     """Always fails - for testing retry logic"""
     time.sleep(1)
-    raise Exception("This job is designed to fail")
+    raise JobExecutionError(
+        f'This job is designed to fail. Payload: {payload}')
 
 
 def process_next_job(db: Session):
@@ -104,7 +115,7 @@ def process_next_job(db: Session):
         )
         if job.scheduled_at:
             logger.info(
-                f"Job was scheduled for {job.scheduled_at.isoformat()}")
+                "Job was scheduled for %s", job.scheduled_at.isoformat())
 
         job.status = JobStatus.PROCESSING
         job.started_at = datetime.datetime.now()
@@ -120,7 +131,7 @@ def process_next_job(db: Session):
         result = execute_job(job)
         duration = time.time() - start_time
 
-        logger.info(f"Job {job.id} completed successfully in {duration:.2f}s")
+        logger.info("Job %s completed successfully in %.2fs", job.id, duration)
 
         # Success - record metrics
         job.status = JobStatus.COMPLETED
@@ -130,16 +141,17 @@ def process_next_job(db: Session):
         jobs_completed_counter.labels(job_type=job.type).inc()
         job_duration_histogram.labels(job_type=job.type).observe(duration)
 
-    except Exception as e:
+    except (JobExecutionError, UnknownJobTypeError) as e:
         duration = time.time() - start_time
-        logger.error(f"Job {job.id} failed after {duration:.2f}s: {str(e)}")
+        logger.error("Job %s failed after %.2fs: %s", job.id, duration, str(e))
 
         job.attempts += 1
 
         if job.attempts >= job.max_attempts:
             # No more retries
             logger.error(
-                f"Job {job.id} has failed and has exceeded the max attempts: {job.max_attempts}")
+                "Job %s has failed and has exceeded the max attempts: %s",
+                job.id, job.max_attempts)
             job.status = JobStatus.FAILED
             job.error_message = str(e)
             job.finished_at = datetime.datetime.now()
@@ -149,7 +161,8 @@ def process_next_job(db: Session):
         else:
             # Retry
             logger.info(
-                f"Job {job.id} will retry (attempt {job.attempts}/{job.max_attempts})")
+                "Job %s will retry (attempt %s/%s)",
+                job.id, job.attempts, job.max_attempts)
             job.status = JobStatus.PENDING
             job.error_message = f"Attempt {job.attempts} failed: {str(e)}"
 
@@ -177,7 +190,7 @@ def recover_stuck_jobs(db: Session):
     count = len(stuck_jobs)
 
     if count > 0:
-        logger.warning(f"Recovered {count} stuck jobs from previous crash")
+        logger.warning("Recovered %s stuck jobs from previous crash", count)
         db.query(Job).filter(Job.status == JobStatus.PROCESSING).update({
             "status": JobStatus.PENDING
         })
@@ -193,7 +206,7 @@ def worker_loop():
     try:
         # Start metrics server in background thread
         logger.info(
-            f"Starting metrics server on port {WORKER_METRICS_PORT}...")
+            "Starting metrics server on port %s...", WORKER_METRICS_PORT)
         start_http_server(WORKER_METRICS_PORT)
 
         # Wait for database to be ready with retries
@@ -206,10 +219,11 @@ def worker_loop():
                 recover_stuck_jobs(db)
                 logger.info("Database connection established")
                 break
-            except Exception as e:
+            except SQLAlchemyError as e:
                 retry_count += 1
                 logger.warning(
-                    f"Database not ready (attempt {retry_count}/{max_retries}): {e}")
+                    "Database not ready (attempt %s/%s): %s",
+                    retry_count, max_retries, e)
                 if retry_count >= max_retries:
                     logger.error(
                         "Failed to connect to database after max retries")

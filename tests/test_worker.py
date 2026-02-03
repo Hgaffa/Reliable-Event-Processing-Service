@@ -61,7 +61,7 @@ def test_handle_always_fail():
             handle_always_fail(payload)
 
 
-def test_execute_job_send_email(db_session):
+def test_execute_job_send_email():
     """Test execute_job routes to send_email handler"""
     job = Job(
         idempotency_key="test",
@@ -72,12 +72,12 @@ def test_execute_job_send_email(db_session):
 
     with patch('app.workers.random.random', return_value=0.5):
         with patch('app.workers.time.sleep'):
-            result = execute_job(job, db_session)
+            result = execute_job(job)
             assert result["sent_to"] == "test@example.com"
             assert result["status"] == "sent"
 
 
-def test_execute_job_process_data(db_session):
+def test_execute_job_process_data():
     """Test execute_job routes to process_data handler"""
     job = Job(
         idempotency_key="test",
@@ -88,11 +88,11 @@ def test_execute_job_process_data(db_session):
 
     with patch('app.workers.random.random', return_value=0.5):
         with patch('app.workers.time.sleep'):
-            result = execute_job(job, db_session)
+            result = execute_job(job)
             assert result["status"] == "processed"
 
 
-def test_execute_job_unknown_type(db_session):
+def test_execute_job_unknown_type():
     """Test that unknown job type raises ValueError"""
     job = Job(
         idempotency_key="test",
@@ -102,10 +102,10 @@ def test_execute_job_unknown_type(db_session):
     )
 
     with pytest.raises(ValueError, match="Unknown job type: unknown_job_type"):
-        execute_job(job, db_session)
+        execute_job(job)
 
 
-def test_execute_job_test_failure(db_session):
+def test_execute_job_test_failure():
     """Test that test_failure type always raises exception"""
     job = Job(
         idempotency_key="test",
@@ -116,4 +116,4 @@ def test_execute_job_test_failure(db_session):
 
     with patch('app.workers.time.sleep'):
         with pytest.raises(Exception, match="This job is designed to fail"):
-            execute_job(job, db_session)
+            execute_job(job)
