@@ -163,7 +163,7 @@ def get_stats(db: Session = Depends(get_db)):
             status.value: count for status, count in status_counts
         },
         "type_breakdown": {
-            dict(type_counts)
+            job_type: count for job_type, count in type_counts # pylint: disable=not-callable
         },
         "avg_attempts_for_failed_jobs": float(avg_attempts) if avg_attempts else 0,
         "recent_failures": [

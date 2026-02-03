@@ -11,7 +11,7 @@ from prometheus_client import start_http_server
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, or_
 
-from app.db import SessionLocal
+from app.db import SESSIONLOCAL
 from app.models import Job
 from app.schemas import JobStatus
 from app.metrics import (
@@ -186,7 +186,7 @@ def recover_stuck_jobs(db: Session):
 
 def worker_loop():
     """Main worker loop that polls the db for jobs"""
-    db = SessionLocal()
+    db = SESSIONLOCAL()
 
     try:
         # Start metrics server in background thread
