@@ -31,8 +31,11 @@ def create_job(
     """
     Create a new job with idempotency support.
 
-    If a job with the same idempotency_key already exists, returns that job instead of creating a new one.
-    This ensures that retrying the same request doesn't create duplicate jobs.
+    If a job with the same idempotency_key already exists, 
+    returns that job instead of creating a new one.
+
+    This ensures that retrying the same request doesn't create
+    duplicate jobs.
     """
 
     # Check if job with this idempotency key exists
@@ -98,7 +101,7 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/jobs", response_model=JobListResponse)
-# Status is an optional query parameter as opposed to a URL parameter to allow users to query all jobs without status filtering
+# Status is an optional query parameter as opposed to a URL parameter
 def get_jobs(
         status: Optional[JobStatus] = None,
         db: Session = Depends(get_db)):
@@ -139,13 +142,13 @@ def get_stats(db: Session = Depends(get_db)):
     # Get counts by status
     status_counts = db.query(
         Job.status,
-        func.count(Job.id).label('count') # pylint: disable=not-callable
+        func.count(Job.id).label('count')  # pylint: disable=not-callable
     ).group_by(Job.status).all()
 
     # Get counts by type
     type_counts = db.query(
         Job.type,
-        func.count(Job.id).label('count') # pylint: disable=not-callable
+        func.count(Job.id).label('count')  # pylint: disable=not-callable
     ).group_by(Job.type).all()
 
     # Get average attempts for failed jobs
@@ -163,7 +166,7 @@ def get_stats(db: Session = Depends(get_db)):
             status.value: count for status, count in status_counts
         },
         "type_breakdown": {
-            job_type: count for job_type, count in type_counts # pylint: disable=not-callable
+            job_type: count for job_type, count in type_counts  # pylint: disable=not-callable
         },
         "avg_attempts_for_failed_jobs": float(avg_attempts) if avg_attempts else 0,
         "recent_failures": [

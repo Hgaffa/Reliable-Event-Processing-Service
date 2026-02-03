@@ -23,5 +23,5 @@ jobs:
         pip install pylint
     - name: Analysing the code with pylint
       run: |
-        pylint --ignore=alembic app/
+        PYTHONPATH=$(pwd) pylint --ignore=alembic app/
 
