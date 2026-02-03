@@ -1,3 +1,6 @@
+"""
+SQLAlchemy Table Models
+"""
 from typing import Optional, Dict
 from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, Enum, JSON, func
@@ -7,7 +10,8 @@ from app.db import Base
 from app.schemas import JobStatus
 
 
-class Job(Base):
+class Job(Base): # pylint: disable=too-few-public-methods
+    """Job"""
     __tablename__ = "job"
 
     id: Mapped[int] = mapped_column(
@@ -65,14 +69,14 @@ class Job(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
+        server_default=func.now(), # pylint: disable=not-callable
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
+        server_default=func.now(), # pylint: disable=not-callable
+        onupdate=func.now(), # pylint: disable=not-callable
     )
 
     started_at: Mapped[Optional[datetime]] = mapped_column(

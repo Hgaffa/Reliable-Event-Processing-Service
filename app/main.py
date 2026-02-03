@@ -1,23 +1,19 @@
+"""Fast API Server"""
+from typing import Optional
+import datetime
+
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import Response
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from app.schemas import JobCreateRequest, JobResponse, JobStatus, JobListResponse, JobStatus
-from app.db import Base, engine, get_db
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from app.schemas import JobCreateRequest, JobResponse, JobStatus, JobListResponse
+from app.db import get_db
 from app.models import Job
 from app.utils import build_job_response
-from app.metrics import (
-    jobs_created_counter,
-    jobs_pending_gauge,
-    jobs_processing_gauge
-)
-
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-
-from typing import Optional
-import datetime
+from app.metrics import jobs_created_counter
 
 app = FastAPI()
 
@@ -143,13 +139,13 @@ def get_stats(db: Session = Depends(get_db)):
     # Get counts by status
     status_counts = db.query(
         Job.status,
-        func.count(Job.id).label('count')
+        func.count(Job.id).label('count') # pylint: disable=not-callable
     ).group_by(Job.status).all()
 
     # Get counts by type
     type_counts = db.query(
         Job.type,
-        func.count(Job.id).label('count')
+        func.count(Job.id).label('count') # pylint: disable=not-callable
     ).group_by(Job.type).all()
 
     # Get average attempts for failed jobs
@@ -167,7 +163,7 @@ def get_stats(db: Session = Depends(get_db)):
             status.value: count for status, count in status_counts
         },
         "type_breakdown": {
-            job_type: count for job_type, count in type_counts
+            dict(type_counts)
         },
         "avg_attempts_for_failed_jobs": float(avg_attempts) if avg_attempts else 0,
         "recent_failures": [

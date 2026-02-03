@@ -1,9 +1,12 @@
-from pydantic import BaseModel
+"""
+Pydantic Models
+"""
 from typing import Any, Optional, Dict, List
 from enum import Enum
-
+from pydantic import BaseModel
 
 class JobStatus(str, Enum):
+    """Job Status Model"""
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
@@ -11,6 +14,7 @@ class JobStatus(str, Enum):
 
 
 class JobCreateRequest(BaseModel):
+    """Job Create Request Model"""
     type: str
     idempotency_key: str
     payload: Dict[str, Any]
@@ -19,6 +23,7 @@ class JobCreateRequest(BaseModel):
 
 
 class JobResponse(BaseModel):
+    """Job Response Model"""
     job_id: int
     type: str
     idempotency_key: str
@@ -36,4 +41,5 @@ class JobResponse(BaseModel):
 
 
 class JobListResponse(BaseModel):
+    """Job List Response Model"""
     jobs: List[JobResponse]

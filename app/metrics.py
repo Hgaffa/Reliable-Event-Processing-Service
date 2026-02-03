@@ -1,8 +1,7 @@
 '''
 Prometheus metrics configuration
 '''
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
-import time
+from prometheus_client import Counter, Histogram, Gauge
 
 # Counters - always increase
 jobs_created_counter = Counter(
